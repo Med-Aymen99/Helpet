@@ -99,7 +99,9 @@ export default function PetForm(props) {
             </fieldset>
 
             <br />
-            <button >Submit</button>
+            <button >
+            {props.update ? "Add pet" : "Update pet"}
+            </button>
         </form>
     )
 }

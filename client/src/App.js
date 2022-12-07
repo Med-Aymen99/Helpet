@@ -1,6 +1,4 @@
 import React from "react"
-import Navbar from "./Components/Navbar"
-import Hero from "./Components/Hero"
 import Card from "./Components/Card"
 import data from "./data.js"
 import PetForm from "./Components/PetForm"
@@ -8,30 +6,32 @@ import About from "./Components/pages/About"
 import Shop from "./Components/pages/Shop"
 import {Route, Routes, useNavigate} from 'react-router-dom'
 import Axios from "axios"
-
+import Home from "./Components/pages/Home"
 
 // Switch ==> Routes
 export default function App() {
     const [petList, setPetList] = React.useState(
-      [{
-        id:"",
-        name: "",
-        type: "",
-        breed: "",
-        age: "",
-        sex: "",
-      }
-      ]
+      [
+        {
+          id:"",
+          name: "",
+          type: "",
+          breed: "",
+          age: "",
+          sex: ""
+        }
+     ]
     );
     const [formData, setFormData] = React.useState(
     {
             name: "",
-            type: "",
+            type: "dog",
             breed: "",
             age: "",
-            sex: "",
-
+            sex: "female",
     })
+    const [selectedPetId,setSelectedPetId] = React.useState(-1);
+    const [filteredPetList, setFilteredPedList] = React.useState(petList);
 
     const navigate = useNavigate();
 
@@ -43,16 +43,23 @@ export default function App() {
                 [name]: type === "checkbox" ? checked : value
             }
         })
-
     }
 
     React.useEffect(() => {
       Axios.get("http://localhost:3001/petList").then((response) => {
-        setPetList(response.data);
-        console.log(response.data)
-        //
+        console.log("useEffect executed")
+        setPetList(response.data)
       });
-    },[petList])
+    },[])
+
+
+    const deletePet = (petId) => {
+      Axios.delete(`http://localhost:3001/delete/${petId}`)
+        .then((response) => console.log(`pet of id ${petId} has been deleted`))
+        .catch((err) => console.log(err));
+      setPetList(oldPetList => oldPetList.filter(pet => pet.id != petId))
+      navigate('/')
+    }
 
     const addPet = (event) => {
         Axios.post("http://localhost:3001/create",formData)
@@ -60,41 +67,65 @@ export default function App() {
         .catch((err) => console.log("err"));
 
         navigate('/')
-
         setPetList ([
           ...petList,
           formData
         ])
-
     };
 
-    const getPets = () => {
-      Axios.get("http://localhost:3001/petList").then((response) => {
-        setPetList(response.data);
+    const filterPet = (event) => {
+      event.preventDefault();
+      Axios.get("http://localhost:3001/filter", {params: formData}).then((response) => {
+        setPetList(response.data)
       });
+
+    }
+
+    const updatePet = (event) => {
+      const item = {
+          id : selectedPetId,
+          ...formData
+      }
+
+      Axios.put("http://localhost:3001/update", item)
+           .then((response) => console.log(response))
+           .catch((err) => console.log(err));
+      navigate('/')
+      const selectedPetIndex = petList.findIndex(pet => pet.id == selectedPetId)
+      setPetList(oldPetList => {
+        oldPetList.splice(selectedPetIndex,1,item);
+        return oldPetList;
+      })
+      event.preventDefault()
     }
 
 
-    const pets = petList.map(item =>
-        <Card
+    const updateForm = (item) =>  {
+      setSelectedPetId(item.id)
+      const {id, ...data} = item
+      setFormData(data)
+    };
+
+
+
+    const pets = petList.map(item => {
+        return <Card
             key = {item.id}
             {...item}
+            onClickDelete={() => deletePet(item.id)}
+            onClickUpdate={() => updateForm(item)}
         />
-    );
+      }
+    )
 
     return (
         <div>
-        <Routes>
-            <Route path="/form" element={<PetForm onSubmit={addPet} handleChange={handleChange} formData={formData}/>} />
-            <Route path="/about" element={<About/>} />
-            // <Route path="/shop" element={<Shop/>} />
-        </Routes>
-            <Navbar />
-            <Hero />
-            <section className="cards-list">
-              {pets}
-            </section>
-
+          <Routes>
+              <Route path="/form" element={<PetForm onSubmit={addPet} update={false} handleChange={handleChange} formData={formData}/>} />
+              <Route path="/updateForm" element={<PetForm onSubmit={updatePet} upadate={true} handleChange={handleChange} formData={formData}/>} />
+              <Route path="/about" element={<About/>} />
+          </Routes>
+          <Home pets={pets} onSubmit={filterPet} handleChange={handleChange} formData={formData}/>
         </div>
     )
 }
